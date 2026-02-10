@@ -27,9 +27,46 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: |
-          # Replace placeholders in reset-password.html with actual values
+          # Verify secrets are set
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
+            echo "❌ Error: SUPABASE_URL or SUPABASE_ANON_KEY secrets are not set!"
+            echo "Please configure them in Repository Settings → Secrets and variables → Actions"
+            exit 1
+          fi
+          
+          # Verify placeholders exist in file
+          if ! grep -q "YOUR_SUPABASE_URL_HERE" reset-password.html; then
+            echo "⚠️  Warning: YOUR_SUPABASE_URL_HERE placeholder not found in reset-password.html"
+          fi
+          
+          if ! grep -q "YOUR_SUPABASE_ANON_KEY_HERE" reset-password.html; then
+            echo "⚠️  Warning: YOUR_SUPABASE_ANON_KEY_HERE placeholder not found in reset-password.html"
+          fi
+          
+          # Replace placeholders (using | as delimiter to avoid issues with URLs containing /)
           sed -i "s|YOUR_SUPABASE_URL_HERE|${SUPABASE_URL}|g" reset-password.html
           sed -i "s|YOUR_SUPABASE_ANON_KEY_HERE|${SUPABASE_ANON_KEY}|g" reset-password.html
+          
+          # Verify replacement worked
+          if grep -q "YOUR_SUPABASE_URL_HERE" reset-password.html || grep -q "YOUR_SUPABASE_ANON_KEY_HERE" reset-password.html; then
+            echo "❌ Error: Placeholders were not replaced! Check that secrets are set correctly."
+            exit 1
+          fi
+          
+          # Verify values were inserted (check first few chars to avoid logging full keys)
+          if grep -q "const SUPABASE_URL = 'https://" reset-password.html; then
+            echo "✅ SUPABASE_URL replaced successfully"
+          else
+            echo "❌ Error: SUPABASE_URL replacement failed"
+            exit 1
+          fi
+          
+          if grep -q "const SUPABASE_ANON_KEY = '" reset-password.html && ! grep -q "YOUR_SUPABASE_ANON_KEY_HERE" reset-password.html; then
+            echo "✅ SUPABASE_ANON_KEY replaced successfully"
+          else
+            echo "❌ Error: SUPABASE_ANON_KEY replacement failed"
+            exit 1
+          fi
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
